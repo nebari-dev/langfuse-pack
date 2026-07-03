@@ -1,8 +1,8 @@
 # Nebari software pack metadata, consumed by software-pack-dashboard.
 # Schema: https://raw.githubusercontent.com/nebari-dev/software-pack-dashboard/main/schema/pack-metadata.schema.json
-name: nebari-langfuse-pack
+name: langfuse-pack
 display_name: Langfuse Pack
-level: beta
+level: alpha
 owner: dcmcand
 deprecated: false
 product_owner: dcmcand
