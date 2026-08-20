@@ -3,28 +3,68 @@ title: Introduction
 description: "Langfuse LLM observability: tracing, evals, prompt management, and metrics for debugging and improving LLM apps."
 ---
 
-The Nebari Langfuse Pack deploys [Langfuse](https://langfuse.com/) on
-[Nebari](https://nebari.dev) for LLM observability and tracing, with a
-`NebariApp` custom resource for routing, TLS, and gateway authentication on a
-Nebari cluster.
+The Nebari Langfuse Pack deploys [Langfuse](https://langfuse.com/) — open-source LLM
+observability, tracing, evaluation, and prompt management — on a
+[Nebari](https://nebari.dev) cluster with Keycloak SSO, TLS, and routing handled by a
+`NebariApp`.
 
-:::note[Documentation in progress]
-This site is the scaffolding for the pack's documentation. Content is being
-written; until it lands here, the
-[repository README](https://github.com/nebari-dev/langfuse-pack#readme)
-is the reference for installing the pack.
-:::
+Wraps the upstream `langfuse/langfuse` chart **1.5.34** (Langfuse **3.179.1**). Declared
+maturity: **Beta**.
+
+```
+  browser ──► Envoy Gateway ──► langfuse-web :3000 ──┬─► PostgreSQL   metadata
+                (routing            │                ├─► ClickHouse   traces & events
+                 + TLS)             │                ├─► Redis        queue & cache
+                              NextAuth OAuth         └─► S3/MinIO     large payloads
+                                    │
+                                Keycloak            langfuse-worker  async ingestion
+```
+
+Four datastores, which is the main thing to know before installing: Langfuse is not a
+single-container application. All four are bundled by default for development, and all four
+should be external in production. See [Datastores](/datastores/).
+
+Authentication is app-native. Langfuse runs the OAuth flow itself through NextAuth, so
+`enforceAtGateway` is `false` and the gateway only routes.
+
+## Four things that will bite you
+
+Each has a section below; they are collected here because all four are silent or
+confusingly-reported failures.
+
+- **Values are double-nested.** The dependency is named `langfuse` *and* the upstream chart
+  has a top-level `langfuse` key, so app config lives at `langfuse.langfuse.*`. See
+  [Value nesting](/value-nesting/).
+- **Generated secrets do not work under Argo CD.** `helm template` cannot do cluster
+  lookups, so every sync writes new random values and breaks datastore auth. Pre-create the
+  Secret. See [Secrets and GitOps](/secrets/).
+- **The Keycloak issuer must be set by hand.** The operator does not reliably emit it into
+  the OIDC secret, and the chart's default is a literal `REPLACE-ME`. See
+  [Getting started](/getting-started/).
+- **`nebariapp.routing` must be present.** Omit it and the operator skips routing entirely —
+  `RoutingNotConfigured`, and the hostname returns 404. The chart enables it by default;
+  do not remove it.
+
+## In this guide
+
+- **[Getting started](/getting-started/)** — install on Nebari, with the three values you
+  must supply
+- **[Deploying on Nebari](/deployment/)** — GitOps with Argo CD, and the Secret you must create first
+- **[Standalone deployment](/standalone/)** — no Nebari, email/password auth
+- **[Local development](/local-development/)** — kind stack and the e2e suite
+
+## Guides
+
+- **[Value nesting](/value-nesting/)** — why `langfuse.langfuse.*`, and how to tell which
+  depth a value belongs at
+- **[Datastores](/datastores/)** — the four backends, and why ClickHouse is single-node here
+- **[Secrets and GitOps](/secrets/)** — what is generated, what rotation costs, and the
+  Argo CD path
+- **[Troubleshooting](/troubleshooting/)** — the failures this pack actually produces
 
 ## Reference
 
-- [Configuration reference](/configuration/) — every configuration surface:
-  NebariApp values, Langfuse passthrough values, authentication, secrets,
-  external datastores, and telemetry.
-- [Release readiness checklist](/release-readiness/) — maturity-checklist
-  status for the pack.
-
-## Contributing to these docs
-
-Pages live in `docs/src/content/docs/`. See the
-[docs README](https://github.com/nebari-dev/langfuse-pack/blob/main/docs/README.md)
-for how to run the site locally and add a page.
+- **[Configuration reference](/configuration/)** — every value: NebariApp, Langfuse
+  passthrough, auth wiring, secrets, external datastores, telemetry, and OTel Collector
+  export
+- **[Release readiness](/release-readiness/)** — maturity-checklist status
