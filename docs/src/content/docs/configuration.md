@@ -1,4 +1,7 @@
-# Configuration Reference
+---
+title: Configuration reference
+description: Every configuration surface for the nebari-langfuse pack - NebariApp values, Langfuse passthrough values, authentication, secrets, external datastores, and telemetry.
+---
 
 This document covers all configuration surfaces for the `nebari-langfuse` pack.
 

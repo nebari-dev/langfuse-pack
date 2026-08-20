@@ -1,4 +1,7 @@
-# Release Readiness Checklist - nebari-langfuse (Beta)
+---
+title: Release readiness checklist
+description: Status of every Experimental, Alpha, and Beta item from the Nebari software pack maturity checklist as applied to the nebari-langfuse pack.
+---
 
 This document records the status of every `[E]` (Experimental), `[A]` (Alpha), and `[B]`
 (Beta) item from the Nebari software pack maturity checklist

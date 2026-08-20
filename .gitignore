@@ -8,3 +8,11 @@ CLAUDE.md
 
 # Internal planning/scaffolding - not part of the shipped pack
 docs/superpowers/
+
+# Docs (Astro)
+docs/node_modules/
+docs/dist/
+docs/.astro/
+docs/npm-debug.log*
+docs/.env
+docs/.env.production
