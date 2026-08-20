@@ -21,7 +21,7 @@ export default defineConfig({
   integrations: [
     starlight({
       title: 'Nebari Langfuse Pack',
-      description: 'Deploy Langfuse on Nebari for LLM observability and tracing, with NebariApp routing, TLS, and gateway authentication.',
+      description: 'Langfuse LLM observability: tracing, evals, prompt management, and metrics for debugging and improving LLM apps.',
       // Shared Nebari identity (brand colors, fonts, logo, favicon, footer, and
       // GitHub social link) comes from the @nebari/starlight theme plugin. On the
       // portal the header logo returns users to the pack catalog.

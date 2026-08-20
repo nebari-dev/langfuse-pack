@@ -1,6 +1,6 @@
 ---
 title: Introduction
-description: Documentation for the Nebari Langfuse Pack - deploy Langfuse on Nebari for LLM observability and tracing, with NebariApp routing, TLS, and gateway authentication.
+description: "Langfuse LLM observability: tracing, evals, prompt management, and metrics for debugging and improving LLM apps."
 ---
 
 The Nebari Langfuse Pack deploys [Langfuse](https://langfuse.com/) on
