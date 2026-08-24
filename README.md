@@ -5,7 +5,7 @@ observability, tracing, evaluation, and prompt-management platform - on a Nebari
 full Keycloak SSO integration.
 
 This pack wraps the upstream `langfuse/langfuse` Helm chart **1.5.34** (Langfuse app version
-**3.179.1**). Declared maturity level: **Beta**.
+**3.179.1**). Declared maturity level: **Alpha** (`level: alpha` in `pack-metadata.yaml`).
 
 ---
 
@@ -137,7 +137,7 @@ On first install, the pack generates a Kubernetes Secret named `langfuse-secrets
 
 | Key | Description |
 |-----|-------------|
-| `salt` | Langfuse password hashing salt |
+| `salt` | Salt used to hash project API keys |
 | `encryptionKey` | 64-character hex key for encrypting integration credentials |
 | `nextauth-secret` | NextAuth.js session signing key |
 | `postgres-password` | PostgreSQL password |
