@@ -96,13 +96,15 @@ Note `langfuse.langfuse` in that values block. It is not a typo — see
 `nebariapp.service.name` targets. Combined with the chart's
 `langfuse.fullnameOverride: langfuse` pin, the name is stable.
 
-**`managedNamespaceMetadata`** applies `nebari.dev/managed: "true"`. The operator ignores
-`NebariApp` resources in unlabeled namespaces — silently, with no event. You already applied
-the label by hand above; this keeps it if the namespace is ever recreated.
+**`managedNamespaceMetadata`** applies `nebari.dev/managed: "true"`. Without it the operator
+refuses to reconcile the `NebariApp`: it emits a Warning event and sets `Ready=False` with
+reason `NamespaceNotOptedIn`. You already applied the label by hand above; this keeps it if
+the namespace is ever recreated.
 
 **`valuesObject`** rather than a `values` string means Argo CD parses the YAML, so a
-structural error is caught at sync rather than becoming a silently-ignored value at the
-wrong depth.
+malformed block fails the sync instead of reaching Helm as an opaque string. It does not
+protect you from the wrong *depth* — a misplaced value is still valid YAML and still
+silently ignored.
 
 **`targetRevision: 0.1.0`** should stay pinned. A floating version would upgrade Langfuse
 and run its schema migrations unannounced.

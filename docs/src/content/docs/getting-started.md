@@ -26,6 +26,10 @@ Without a Nebari platform, go to [Standalone deployment](/standalone/).
 helm repo add nebari https://nebari-dev.github.io/helm-repository
 helm repo update
 
+# examples/ ships in the pack repository, not inside the published chart
+git clone https://github.com/nebari-dev/langfuse-pack.git
+cd langfuse-pack
+
 helm install langfuse nebari/nebari-langfuse \
   -f examples/nebari-values.yaml \
   --set nebariapp.hostname=langfuse.example.com \
@@ -59,8 +63,9 @@ callback URLs pointing at localhost — the login round-trip fails after Keycloa
 before, which makes it look like a Keycloak problem.
 
 **`issuer`** defaults to the literal `https://REPLACE-ME/realms/nebari`. Langfuse requires
-`AUTH_KEYCLOAK_ISSUER`, and the operator does not reliably write the issuer URL into the
-OIDC secret, so it cannot be read automatically. Sub-chart values cannot be templated from
+`AUTH_KEYCLOAK_ISSUER`, and the OIDC secret's `issuer-url` key is populated only when the
+operator has `KEYCLOAK_EXTERNAL_URL` set — on most clusters it is empty, so the value
+cannot be read automatically. Sub-chart values cannot be templated from
 the parent, which is why the chart cannot derive it from `nebariapp.hostname` either.
 
 `clientId` and `clientSecret` *are* automatic — they come from the `langfuse-oidc-client`
@@ -73,11 +78,17 @@ Secret the operator creates.
 | `langfuse-web` | UI and API, port `3000` |
 | `langfuse-worker` | Async ingestion and processing |
 | `langfuse-postgresql` | Metadata |
-| `langfuse-clickhouse` | Traces, observations, scores |
-| `langfuse-redis` | Queue and cache |
-| `langfuse-minio` | Large payload storage |
+| `langfuse-clickhouse-shard0` | Traces, observations, scores |
+| `langfuse-redis-primary` | Queue and cache |
+| `langfuse-s3` | Large payload storage |
 | `langfuse-secrets` | Generated credentials |
 | `langfuse` | `NebariApp` |
+
+Two of those names are not what you would guess. MinIO comes in under the upstream alias
+`s3`, so every one of its resources is `langfuse-s3` — there is nothing named
+`langfuse-minio`. Redis is the Valkey chart aliased to `redis`, so the StatefulSet is
+`langfuse-redis-primary`. ClickHouse's Service is `langfuse-clickhouse` while its StatefulSet
+carries the shard suffix.
 
 ## Verify
 

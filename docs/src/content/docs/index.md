@@ -9,7 +9,7 @@ observability, tracing, evaluation, and prompt management — on a
 `NebariApp`.
 
 Wraps the upstream `langfuse/langfuse` chart **1.5.34** (Langfuse **3.179.1**). Declared
-maturity: **Beta**.
+maturity: **Alpha** (`level: alpha` in `pack-metadata.yaml`).
 
 ```
   browser ──► Envoy Gateway ──► langfuse-web :3000 ──┬─► PostgreSQL   metadata
@@ -38,9 +38,9 @@ confusingly-reported failures.
 - **Generated secrets do not work under Argo CD.** `helm template` cannot do cluster
   lookups, so every sync writes new random values and breaks datastore auth. Pre-create the
   Secret. See [Secrets and GitOps](/secrets/).
-- **The Keycloak issuer must be set by hand.** The operator does not reliably emit it into
-  the OIDC secret, and the chart's default is a literal `REPLACE-ME`. See
-  [Getting started](/getting-started/).
+- **The Keycloak issuer must be set by hand.** The operator fills the OIDC secret's
+  `issuer-url` only when `KEYCLOAK_EXTERNAL_URL` is set, and the chart's default is a literal
+  `REPLACE-ME`. See [Getting started](/getting-started/).
 - **`nebariapp.routing` must be present.** Omit it and the operator skips routing entirely —
   `RoutingNotConfigured`, and the hostname returns 404. The chart enables it by default;
   do not remove it.

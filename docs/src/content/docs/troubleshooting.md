@@ -24,17 +24,21 @@ kubectl -n langfuse get deploy langfuse-web -o yaml | grep -A2 NEXTAUTH_URL
 
 The second command is the real check — it shows what the pod received.
 
-## NebariApp not reaching Ready
+## NebariApp not Ready — or Ready but unreachable
 
 ```bash
 kubectl -n langfuse describe nebariapp langfuse
 ```
 
-| Condition | Fix |
-|---|---|
-| `NamespaceNotOptedIn` | `kubectl label namespace langfuse nebari.dev/managed=true` |
-| `ServiceNotFound` | `langfuse-web` is missing — check the release deployed and `langfuse.fullnameOverride: langfuse` is still set |
-| `RoutingNotConfigured` | `nebariapp.routing` was removed; the operator skips routing entirely and the hostname 404s |
+| Condition | Reason | Fix |
+|---|---|---|
+| `Ready` | `NamespaceNotOptedIn` | `kubectl label namespace langfuse nebari.dev/managed=true` |
+| `Ready` | `ServiceNotFound` | `langfuse-web` is missing — check the release deployed and `langfuse.fullnameOverride: langfuse` is still set |
+| `RoutingReady` | `RoutingNotConfigured` | `nebariapp.routing` was removed; the operator skips routing entirely and the hostname 404s |
+
+Read every condition, not the top-line status. `RoutingNotConfigured` lands on `RoutingReady`
+and leaves `Ready` alone, so it presents as a `NebariApp` that looks healthy while the
+hostname returns 404.
 
 ```bash
 kubectl -n langfuse get svc
@@ -55,8 +59,9 @@ kubectl -n langfuse get deploy langfuse-web -o yaml | grep -A2 NEXTAUTH_URL
 It must be `https://<nebariapp.hostname>`.
 
 **The issuer is unset.** The chart's default is the literal
-`https://REPLACE-ME/realms/nebari` — the operator does not reliably emit the issuer URL into
-the OIDC secret, so it cannot be derived:
+`https://REPLACE-ME/realms/nebari`. The OIDC secret's `issuer-url` key is populated only when
+the operator has `KEYCLOAK_EXTERNAL_URL` set, so on most clusters there is nothing to derive
+it from:
 
 ```bash
 kubectl -n langfuse get deploy langfuse-web -o yaml | grep -A2 AUTH_KEYCLOAK_ISSUER

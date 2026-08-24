@@ -10,7 +10,7 @@ With `secrets.generate: true` (the default), the chart creates a Secret named
 
 | Key | Purpose |
 |---|---|
-| `salt` | Langfuse password hashing salt |
+| `salt` | Hashes project API keys |
 | `encryptionKey` | 64 hex characters — encrypts stored integration credentials |
 | `nextauth-secret` | NextAuth session signing key |
 | `postgres-password` | PostgreSQL |
@@ -91,14 +91,21 @@ credentials are unrecoverable — every integration must be re-entered by hand. 
 migration path.
 :::
 
-The others are safer but not free:
+:::caution[`salt` is not a password salt]
+Upstream uses `SALT` to hash **project API keys**, not user passwords. Rotate it and every
+key issued to every SDK stops authenticating — ingestion halts until each project's keys are
+regenerated and every client is updated. SSO-only deployments are not exempt; with SSO there
+are no passwords, so API keys are the only thing `salt` protects.
+:::
+
+What rotating each key costs:
 
 | Key | Cost of rotating |
 |---|---|
 | `nextauth-secret` | Every active session is invalidated; users log in again. |
 | `postgres-password`, `redis-password`, `clickhouse-password` | Must be changed in the datastore *and* the Secret, then both sides restarted. |
 | `root-password` | Same, for MinIO. |
-| `salt` | Affects password hashing; irrelevant with SSO-only auth. |
+| `salt` | **Invalidates every project API key.** All SDK ingestion stops until keys are reissued. |
 | `encryptionKey` | **Orphans all stored integration credentials.** |
 
 Rotating a bundled datastore password means restarting the datastore and both Langfuse

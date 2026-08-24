@@ -26,7 +26,7 @@ with justification and must be resolved as follow-up actions before or at promot
 |------|-------|--------|---------------|
 | Repo is created from the software pack template | `[E]` | N/A - effectively satisfied | The pack was not forked from a template repo (none existed at authoring time) but mirrors the template structure exactly: `chart/`, `examples/`, `tests/`, `docs/`, `dev/`, `.github/workflows/`, `CODEOWNERS`, `pack-metadata.yaml`, `LICENSE`. All template-required files are present. |
 | `CODEOWNERS` names at least one accountable engineer | `[E]` | done | `CODEOWNERS` at repo root: `* @dcmcand` (this commit). |
-| `pack-metadata.yaml` exists, validates against schema, declares level + owner + scope flags | `[E]` | done | `pack-metadata.yaml` at repo root. `level: beta`, `owner: dcmcand`, `scope.standalone-supported: yes`. Validated with `check-jsonschema` against the published dashboard schema (2026-06-12). The schema repo is private, so unauthenticated CI falls back to a required-keys check kept in sync with the schema. |
+| `pack-metadata.yaml` exists, validates against schema, declares level + owner + scope flags | `[E]` | done | `pack-metadata.yaml` at repo root. `level: alpha`, `owner: dcmcand`, `scope.standalone-supported: yes`. Validated with `check-jsonschema` against the published dashboard schema (2026-06-12). The schema repo is private, so unauthenticated CI falls back to a required-keys check kept in sync with the schema. |
 | Pack is listed in `nebari-dev/software-pack-dashboard/tracked-packs.yaml` | `[E]` | done | Added via software-pack-dashboard#2 (merged 2026-06-12). |
 | README explains what the pack does and who it is for | `[E]` | covered by Task 9 | `README.md` authored in Task 9. |
 | `product_owner` field is populated in `pack-metadata.yaml` | `[B]` | done | `product_owner: dcmcand` in `pack-metadata.yaml` (this commit). |
@@ -141,7 +141,7 @@ with justification and must be resolved as follow-up actions before or at promot
 3. **Pre-sales "demoable without engineering" sign-off** - OUTSTANDING: pre-sales engineer
    must run the demo end-to-end and sign off.
 4. **Pre-sales rep + tech lead promotion-PR approvals** - OUTSTANDING: required reviewers
-   per the maturity model promotion process table. The pack is published at `level: beta`
+   per the maturity model promotion process table. The pack is published at `level: alpha`
    with these sign-offs accepted as outstanding by the pack owner.
 
 ## Summary of "Covered by Task N" Items

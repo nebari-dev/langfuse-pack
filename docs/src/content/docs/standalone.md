@@ -12,12 +12,16 @@ operator, gateway, cert-manager, or Keycloak is needed. Just Kubernetes and Helm
 helm repo add nebari https://nebari-dev.github.io/helm-repository
 helm repo update
 
+# examples/ ships in the pack repository, not inside the published chart
+git clone https://github.com/nebari-dev/langfuse-pack.git
+cd langfuse-pack
+
 helm install langfuse nebari/nebari-langfuse \
   -f examples/standalone-values.yaml
 ```
 
 [`examples/standalone-values.yaml`](https://github.com/nebari-dev/langfuse-pack/blob/main/examples/standalone-values.yaml)
-is short:
+is short enough to skip the clone and paste into a values file of your own:
 
 ```yaml
 nebariapp:

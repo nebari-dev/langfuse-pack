@@ -34,8 +34,9 @@ golang-migrate's `schema_migrations` bookkeeping is not consistently replicated 
 three nodes. Migrations land on different replicas, get marked *dirty*, and `langfuse-web`
 crash-loops.
 
-Single-node avoids that entire class of failure and is far lighter — no ZooKeeper, one pod
-instead of four.
+Single-node avoids that entire class of failure and is far lighter: upstream's default is
+three ClickHouse replicas plus a three-node ZooKeeper ensemble, so this is one pod instead of
+six.
 
 :::caution[HA ClickHouse carries the migration caveat]
 `clusterEnabled: true`, `replicaCount: 3`, `zookeeper.enabled: true` gives you the upstream
