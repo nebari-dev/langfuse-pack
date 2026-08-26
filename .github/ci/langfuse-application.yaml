@@ -1,0 +1,69 @@
+# ArgoCD Application the e2e workflow registers into the sandbox's GitOps repo
+# via action-nebari-sandbox/add-software-pack. Modeled on examples/argocd-app.yaml
+# but sourced from the local gitops repo and sized for CI: bundled datastores
+# with persistence off, and the sandbox's fixed hostnames (*.nebari.local).
+#
+# secrets.generate is false because ArgoCD's repo-server renders Helm with no
+# cluster access — the workflow pre-creates langfuse-secrets (see e2e.yaml).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: langfuse
+  namespace: argocd
+spec:
+  project: nebari-apps
+  source:
+    # The sandbox bind-mounts the bootstrapped gitops repo; add-software-pack
+    # copies the chart to <gitops>/langfuse and envsubst-renders ${GITOPS_DIR}.
+    repoURL: "file://${GITOPS_DIR}"
+    targetRevision: HEAD
+    path: langfuse
+    helm:
+      releaseName: langfuse
+      valuesObject:
+        nebariapp:
+          enabled: true
+          hostname: langfuse.nebari.local
+          auth:
+            enabled: true
+          landingPage:
+            enabled: true
+        secrets:
+          generate: false # CI: pre-created by the workflow (see header)
+        langfuse:
+          langfuse:
+            nextauth:
+              url: https://langfuse.nebari.local # MUST equal nebariapp.hostname
+            auth:
+              providers:
+                keycloak:
+                  issuer: "https://keycloak.nebari.local/realms/nebari"
+          # CI: ephemeral datastores — nothing to persist across a test run.
+          postgresql:
+            primary:
+              persistence:
+                enabled: false
+          redis:
+            primary:
+              persistence:
+                enabled: false
+          clickhouse:
+            persistence:
+              enabled: false
+          s3:
+            persistence:
+              enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: langfuse
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    managedNamespaceMetadata:
+      labels:
+        # Required for the nebari-operator to reconcile the NebariApp here.
+        nebari.dev/managed: "true"
