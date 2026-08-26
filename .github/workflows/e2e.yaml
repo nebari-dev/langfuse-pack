@@ -11,6 +11,11 @@ on:
       - ".github/workflows/e2e.yaml"
       - ".github/ci/**"
   workflow_dispatch: {}
+# A push to the PR supersedes any in-flight run — the sandbox job is long, and
+# a hung one would otherwise hold the runner until its 45m timeout.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   # Deploy the pack the way it actually runs on Nebari: through the sandbox's
   # full platform stack (NIC + ArgoCD + Keycloak + operator + gateway) via
@@ -104,21 +109,26 @@ jobs:
           kubectl -n langfuse rollout status deployment/langfuse-web --timeout=900s
           kubectl -n langfuse rollout status deployment/langfuse-worker --timeout=300s
 
-      # The gateway's LoadBalancer IP (MetalLB on the kind docker network) is
-      # reachable from the runner; map the NebariApp hostname to it so
-      # tests/e2e/run.sh can use BASE_URL verbatim (its curl calls pass -k for
-      # the sandbox's self-signed TLS).
-      - name: Point the NebariApp hostname at the gateway
-        run: |
-          echo "${{ steps.sandbox.outputs.gateway-ip }} langfuse.nebari.local" | sudo tee -a /etc/hosts
-
+      # Reach the gateway through a port-forward to Envoy's LoadBalancer
+      # Service — the LB IP (MetalLB on the kind docker network) is not
+      # routable from the runner's network namespace (same workaround as
+      # nebi-pack). Mapping the hostname to 127.0.0.1 lets tests/e2e/run.sh
+      # use BASE_URL verbatim (its curl calls pass -k for the sandbox's
+      # self-signed TLS).
       - name: Black-box test through the gateway (SSO mode)
         run: |
+          echo "127.0.0.1 langfuse.nebari.local" | sudo tee -a /etc/hosts
+          svc=$(kubectl get svc -n envoy-gateway-system \
+            -o jsonpath='{.items[?(@.spec.type=="LoadBalancer")].metadata.name}')
+          kubectl port-forward -n envoy-gateway-system "svc/${svc}" 8443:443 &
+          pf=$!
+          trap 'kill $pf' EXIT
           for i in $(seq 1 40); do
-            curl -skf https://langfuse.nebari.local/api/public/health && break
+            curl -skf --connect-timeout 2 --max-time 15 \
+              https://langfuse.nebari.local:8443/api/public/health && break
             sleep 5
           done
-          BASE_URL=https://langfuse.nebari.local MODE=sso bash tests/e2e/run.sh
+          BASE_URL=https://langfuse.nebari.local:8443 MODE=sso bash tests/e2e/run.sh
 
       # The cluster still exists here — v3 tears the sandbox down in the
       # action's post step, which runs after every regular step in the job.
