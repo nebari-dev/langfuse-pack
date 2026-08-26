@@ -1,4 +1,7 @@
-# Configuration Reference
+---
+title: Configuration reference
+description: Every configuration surface for the nebari-langfuse pack - NebariApp values, Langfuse passthrough values, authentication, secrets, external datastores, and telemetry.
+---
 
 This document covers all configuration surfaces for the `nebari-langfuse` pack.
 
@@ -170,7 +173,7 @@ secret is annotated with `helm.sh/resource-policy: keep` so it is not deleted on
 
 | Key | Usage |
 |-----|-------|
-| `salt` | Langfuse password hashing salt |
+| `salt` | Salt used to hash project API keys (upstream `SALT`) |
 | `encryptionKey` | 64-character hex key for encrypting stored integration credentials |
 | `nextauth-secret` | NextAuth.js session signing key |
 | `postgres-password` | PostgreSQL user password |
@@ -188,9 +191,12 @@ will be unreadable and must be re-entered manually.
 
 ### GitOps / ArgoCD caveat
 
-ArgoCD's `helm template` renderer runs without cluster access, so the `lookup`-based
-secret generation path does not execute. The secret will not be created, and pods will
-fail to start.
+ArgoCD's repo-server renders charts with `helm template`, which has no cluster access, so
+the `lookup` returns nothing on every render. The Secret is still created — with **new random
+values on every sync**, rotating the passwords out from under the running PostgreSQL, Redis,
+ClickHouse, and MinIO instances, which still hold the old ones. The result is authentication
+failures across every datastore, with each component appearing to blame a different
+neighbour. See [Secrets and GitOps](/secrets/) for the full account.
 
 **Production and GitOps path:**
 

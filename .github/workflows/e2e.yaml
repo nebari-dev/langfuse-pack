@@ -1,20 +1,157 @@
 name: E2E
 on:
-  pull_request: { branches: [main] }
+  pull_request:
+    branches: [main]
+    # The sandbox bootstrap is expensive (~10 min before Langfuse even starts);
+    # only run it when something it exercises can have changed. Docs-only PRs
+    # skip it entirely.
+    paths:
+      - "chart/**"
+      - "tests/e2e/**"
+      - ".github/workflows/e2e.yaml"
+      - ".github/ci/**"
   workflow_dispatch: {}
+# A push to the PR supersedes any in-flight run — the sandbox job is long, and
+# a hung one would otherwise hold the runner until its 45m timeout.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
-  e2e-standalone:
+  # Deploy the pack the way it actually runs on Nebari: through the sandbox's
+  # full platform stack (NIC + ArgoCD + Keycloak + operator + gateway) via
+  # GitOps, with NebariApp routing and Keycloak SSO enabled — then black-box
+  # test it through the gateway in SSO mode. This replaces the old standalone
+  # `helm install` on bare kind, which exercised neither the NebariApp CR nor
+  # auth. Standalone mode remains covered locally by tests/e2e/kind-e2e.sh.
+  e2e-sandbox:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
-      - uses: helm/kind-action@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4.3.1
+
+      - name: Set up Nebari sandbox
+        id: sandbox
+        uses: nebari-dev/action-nebari-sandbox@9ac369ebf87ac2ae217504dcbf824c77f70e429a # v3.0.0
         with:
-          cluster_name: nebari-langfuse-e2e
-      - name: install + black-box test (standalone)
+          # Pinned rather than tracking `latest`, so a NIC release cannot turn
+          # this job red without a deliberate bump. v3 requires NIC >= v0.13.0
+          # (local/kind cluster + local repository providers).
+          nic-version: v0.13.0
+          cluster-name: langfuse-e2e
+
+      - name: Surface KUBECONFIG
+        run: echo "KUBECONFIG=${{ steps.sandbox.outputs.kubeconfig }}" >> "$GITHUB_ENV"
+
+      # Vendor the upstream langfuse dependency into chart/charts/ before the
+      # chart is copied into the gitops repo, so ArgoCD's repo-server renders
+      # it without needing to reach the upstream Helm repository.
+      - name: Vendor chart dependencies
+        run: helm dependency update chart/
+
+      # GitOps requires a pre-created secret: ArgoCD's repo-server renders Helm
+      # with no cluster access, so the chart's lookup-based secret generator
+      # (secrets.generate: true) would emit NEW random values on every sync,
+      # rotating langfuse-secrets and breaking datastore auth. Same ritual as
+      # examples/argocd-app.yaml. Hex values only — no URL-encoding issues in
+      # connection strings.
+      - name: Pre-create namespace and langfuse-secrets
         run: |
-          helm dependency update chart/
-          helm install langfuse chart/ -f tests/e2e/ci-values.yaml --wait --timeout 15m
-          kubectl port-forward svc/langfuse-web 3000:3000 &
-          for i in $(seq 1 40); do curl -sf http://localhost:3000/api/public/health && break; sleep 5; done
-          BASE_URL=http://localhost:3000 MODE=standalone bash tests/e2e/run.sh
+          kubectl create namespace langfuse
+          kubectl label namespace langfuse nebari.dev/managed=true
+          kubectl -n langfuse create secret generic langfuse-secrets \
+            --from-literal=salt=$(openssl rand -hex 16) \
+            --from-literal=encryptionKey=$(openssl rand -hex 32) \
+            --from-literal=nextauth-secret=$(openssl rand -hex 32) \
+            --from-literal=postgres-password=$(openssl rand -hex 16) \
+            --from-literal=redis-password=$(openssl rand -hex 16) \
+            --from-literal=clickhouse-password=$(openssl rand -hex 16) \
+            --from-literal=root-user=langfuse \
+            --from-literal=root-password=$(openssl rand -hex 16)
+
+      # Deploy via GitOps and wait for the ArgoCD Application. Langfuse cold
+      # start is slow (ClickHouse + PostgreSQL + Redis + MinIO, then schema
+      # migrations before langfuse-web goes Ready), so the default 5m
+      # wait-timeout is not enough.
+      - name: Register langfuse pack
+        uses: nebari-dev/action-nebari-sandbox/add-software-pack@9ac369ebf87ac2ae217504dcbf824c77f70e429a # v3.0.0
+        with:
+          gitops-dir: ${{ steps.sandbox.outputs.gitops-dir }}
+          app-name: langfuse
+          chart-source: ./chart
+          application-manifest: .github/ci/langfuse-application.yaml
+          wait-timeout: 15m
+
+      # wait-healthy is not sufficient on its own: ArgoCD aggregates an
+      # Application with zero live resources to Healthy, so it can return
+      # before a single manifest has synced. Wait for the chart's Deployments
+      # to exist, then for their rollouts to finish.
+      - name: Wait for langfuse to roll out
+        run: |
+          for obj in deployment/langfuse-web deployment/langfuse-worker; do
+            echo "Waiting for ArgoCD to create $obj..."
+            for i in $(seq 1 60); do
+              if kubectl -n langfuse get "$obj" >/dev/null 2>&1; then
+                echo "  $obj exists (attempt $i)"
+                break
+              fi
+              if [ "$i" -eq 60 ]; then
+                echo "  timed out waiting for $obj"
+                kubectl get application/langfuse -n argocd \
+                  -o custom-columns='SYNC:.status.sync.status,HEALTH:.status.health.status'
+                kubectl -n langfuse get all
+                exit 1
+              fi
+              sleep 5
+            done
+          done
+          kubectl -n langfuse rollout status deployment/langfuse-web --timeout=900s
+          kubectl -n langfuse rollout status deployment/langfuse-worker --timeout=300s
+
+      # Reach the gateway through a port-forward to Envoy's LoadBalancer
+      # Service — the LB IP (MetalLB on the kind docker network) is not
+      # routable from the runner's network namespace (same workaround as
+      # nebi-pack). Mapping the hostname to 127.0.0.1 lets tests/e2e/run.sh
+      # use BASE_URL verbatim (its curl calls pass -k for the sandbox's
+      # self-signed TLS).
+      - name: Black-box test through the gateway (SSO mode)
+        run: |
+          echo "127.0.0.1 langfuse.nebari.local" | sudo tee -a /etc/hosts
+          svc=$(kubectl get svc -n envoy-gateway-system \
+            -o jsonpath='{.items[?(@.spec.type=="LoadBalancer")].metadata.name}')
+          kubectl port-forward -n envoy-gateway-system "svc/${svc}" 8443:443 &
+          pf=$!
+          trap 'kill $pf' EXIT
+          for i in $(seq 1 40); do
+            curl -skf --connect-timeout 2 --max-time 15 \
+              https://langfuse.nebari.local:8443/api/public/health && break
+            sleep 5
+          done
+          BASE_URL=https://langfuse.nebari.local:8443 MODE=sso bash tests/e2e/run.sh
+
+      # The cluster still exists here — v3 tears the sandbox down in the
+      # action's post step, which runs after every regular step in the job.
+      - name: Debug info on failure
+        if: failure()
+        run: |
+          echo "=== Applications ==="
+          kubectl get applications -n argocd \
+            -o custom-columns='NAME:.metadata.name,SYNC:.status.sync.status,HEALTH:.status.health.status' || true
+          kubectl get application/langfuse -n argocd \
+            -o jsonpath='{.status.conditions}{"\n"}' || true
+          echo ""
+          echo "=== NebariApp ==="
+          kubectl -n langfuse get nebariapps -o yaml || true
+          echo ""
+          echo "=== Pods ==="
+          kubectl get pods -A || true
+          echo ""
+          echo "=== langfuse-web logs ==="
+          kubectl -n langfuse logs deployment/langfuse-web --tail=100 || true
+          echo ""
+          echo "=== langfuse-worker logs ==="
+          kubectl -n langfuse logs deployment/langfuse-worker --tail=50 || true
+          echo ""
+          echo "=== Events ==="
+          kubectl -n langfuse get events --sort-by=.lastTimestamp | tail -30 || true

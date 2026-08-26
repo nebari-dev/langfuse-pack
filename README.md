@@ -5,7 +5,7 @@ observability, tracing, evaluation, and prompt-management platform - on a Nebari
 full Keycloak SSO integration.
 
 This pack wraps the upstream `langfuse/langfuse` Helm chart **1.5.34** (Langfuse app version
-**3.179.1**). Declared maturity level: **Beta**.
+**3.179.1**). Declared maturity level: **Alpha** (`level: alpha` in `pack-metadata.yaml`).
 
 ---
 
@@ -82,7 +82,8 @@ langfuse:
     deploy: true
 ```
 
-See `docs/configuration.md` for the full values reference.
+See the [configuration reference](https://packs.nebari.dev/langfuse-pack/configuration/)
+(source: `docs/src/content/docs/configuration.md`) for the full values reference.
 
 ---
 
@@ -136,7 +137,7 @@ On first install, the pack generates a Kubernetes Secret named `langfuse-secrets
 
 | Key | Description |
 |-----|-------------|
-| `salt` | Langfuse password hashing salt |
+| `salt` | Salt used to hash project API keys |
 | `encryptionKey` | 64-character hex key for encrypting integration credentials |
 | `nextauth-secret` | NextAuth.js session signing key |
 | `postgres-password` | PostgreSQL password |
@@ -353,16 +354,37 @@ containers. These are captured by any standard cluster log shipper (Fluentd, Vec
 targeting pod stdout.
 
 For sending traces from the Nebari OTel Collector to Langfuse, see
-`docs/configuration.md#otel-collector-export-to-langfuse`.
+[configuration reference](https://packs.nebari.dev/langfuse-pack/configuration/#otel-collector-export-to-langfuse).
 
 ---
 
 ## Additional Documentation
 
-- `docs/configuration.md` - Full values reference, auth wiring, secrets, external datastores,
-  telemetry, and OTel Collector integration.
+- [Configuration reference](https://packs.nebari.dev/langfuse-pack/configuration/)
+  (`docs/src/content/docs/configuration.md`) - Full values reference, auth wiring, secrets,
+  external datastores, telemetry, and OTel Collector integration.
 - `tests/e2e/README.md` - End-to-end test suite for this pack.
 - `examples/nebari-values.yaml` - Minimal Nebari deployment values.
 - `examples/standalone-values.yaml` - Standalone / local deployment values.
 - `examples/prod-external-datastores.yaml` - Production values with external managed datastores.
 - `examples/argocd-app.yaml` - ArgoCD Application manifest.
+
+## Documentation
+
+The docs site lives in [`docs/`](docs/) and is built with [Astro](https://astro.build) +
+[Starlight](https://starlight.astro.build) using the shared `@nebari/starlight` theme. It
+deploys to [packs.nebari.dev/langfuse-pack/](https://packs.nebari.dev/langfuse-pack/) on
+every merge to `main`; pull requests that touch `docs/` get a preview URL posted as a
+comment.
+
+```bash
+cd docs
+npm ci
+npm run dev     # dev server with hot reload at http://localhost:4321
+npm run build   # static build into docs/dist/
+npm test        # unit tests
+```
+
+Pages live in `docs/src/content/docs/` - each `.md` or `.mdx` file becomes a page, and the
+sidebar is configured in `docs/astro.config.mjs`. See [`docs/README.md`](docs/README.md) for
+details.

@@ -1,8 +1,8 @@
 # Nebari software pack metadata, consumed by software-pack-dashboard.
 # Schema: https://raw.githubusercontent.com/nebari-dev/software-pack-dashboard/main/schema/pack-metadata.schema.json
-name: nebari-langfuse-pack
+name: langfuse-pack
 display_name: Langfuse Pack
-level: beta
+level: alpha
 owner: dcmcand
 deprecated: false
 product_owner: dcmcand
@@ -13,3 +13,16 @@ scope:
 # has not yet been promoted (new repo) so they are omitted here. Include them when
 # the Alpha -> Beta promotion PR merges.
 demo_notes: "App-native Keycloak SSO; set the Keycloak issuer and hostname in values. Bundled datastores use frozen bitnamilegacy images - use external datastores for production."
+
+# Whether this pack publishes its own docs site. When true, the dashboard's
+# route generator adds packs.nebari.dev/langfuse-pack/ -> https://langfuse-pack.pages.dev
+# (the Cloudflare Pages project must be named after the repo).
+docs_site: true
+
+# Links shown alongside the pack on the dashboard. Both are optional.
+links:
+  # Extended documentation (NOT the README - that is auto-linked from the
+  # pack name column).
+  docs: https://packs.nebari.dev/langfuse-pack/
+  # Recorded or live demo URL.
+  # demo: https://example.com/demos/my-pack
